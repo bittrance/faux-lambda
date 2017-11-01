@@ -1,0 +1,82 @@
+#!/usr/bin/env ruby
+
+require 'rack'
+require 'webrick'
+require 'optparse'
+require_relative '../lib/faux_lambda/version'
+
+options = {
+  port: 9123,
+  bind: '127.0.0.1',
+}
+
+functions = {
+  default: {
+    invocation_type: nil,
+    replies: []
+  }
+}
+
+current_function = :default
+parser = OptionParser.new do |opts|
+  opts.banner = "AWS Lambda debugging endpoint, version #{FauxLambda::VERSION}."
+  opts.separator('')
+  opts.separator('Usage: faux-lambda --reply "Hello world!"')
+  opts.on('--function name', '-f name', 'Name of function to expect, optionally with :<qualifier>') do |function_name|
+    current_function = function_name
+    functions[current_function] = {replies: []}
+  end
+  opts.on('--reply payload', '-r payload', 'Data to respond with') do |payload|
+    functions[current_function][:replies] << payload
+  end
+  opts.on('--fail', 'AWS Lambda framework gives 400') do
+    functions[current_function][:replies] << :fail
+  end
+end
+parser.parse!
+
+def reply_from(replies)
+  if replies.size > 1
+    replies.shift
+  elsif replies.size == 1
+    replies.last
+  else
+    nil
+  end
+end
+
+def function_data(functions, function_name, qualifier)
+  qualified_function_name = if qualifier
+    "#{function_name}:#{qualifier}"
+  end
+  functions[qualified_function_name] || functions[function_name] || functions[:default]
+end
+
+app = Proc.new do |env|
+  _, version, _, function_name, _ = env['REQUEST_PATH'].split('/')
+  raise "Unknown version #{version}" unless version == '2015-03-31'
+  qs = Rack::Utils.parse_nested_query(env["QUERY_STRING"])
+
+  data = function_data(functions, function_name, qs["Qualifier"])
+  reply = reply_from(data[:replies])
+  if reply.nil?
+    status_code = '404'
+    reply = 'Not found'
+  elsif reply == :fail
+    status_code = '400'
+    reply = 'Failed'
+  else
+    status_code = '200'
+  end
+
+  headers = {'Content-Type' => 'application/octet-stream'}
+  [status_code, headers, [reply]]
+end
+
+Rack::Handler::WEBrick.run(
+  app,
+  Port: options[:port],
+  BindAddress: options[:bind],
+  Logger: WEBrick::Log.new($stderr, WEBrick::Log::ERROR),
+  AccessLog: [['/dev/null', WEBrick::AccessLog::COMMON_LOG_FORMAT]]
+)
