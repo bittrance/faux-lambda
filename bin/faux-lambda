@@ -22,10 +22,12 @@ parser = OptionParser.new do |opts|
   opts.banner = "AWS Lambda debugging endpoint, version #{FauxLambda::VERSION}."
   opts.separator('')
   opts.separator('Usage: faux-lambda --reply "Hello world!"')
+  opts.separator('Query specifiers:')
   opts.on('--function name', '-f name', 'Name of function to expect, optionally with :<qualifier>') do |function_name|
     current_function = function_name
     functions[current_function] = {replies: []}
   end
+  opts.separator('Reply specifiers:')
   opts.on('--reply payload', '-r payload', 'Data to respond with') do |payload|
     functions[current_function][:replies] << payload
   end
@@ -52,12 +54,19 @@ def function_data(functions, function_name, qualifier)
   functions[qualified_function_name] || functions[function_name] || functions[:default]
 end
 
+def log(function_name, qualifier, payload, status_code, reply)
+  qualifier ||= "$LATEST"
+  puts "#{function_name}:#{qualifier} called with #{payload}, replying #{status_code}: #{reply}"
+end
+
 app = Proc.new do |env|
   _, version, _, function_name, _ = env['REQUEST_PATH'].split('/')
   raise "Unknown version #{version}" unless version == '2015-03-31'
   qs = Rack::Utils.parse_nested_query(env["QUERY_STRING"])
+  qualifier = qs["Qualifier"]
+  payload = env['rack.input'].read
 
-  data = function_data(functions, function_name, qs["Qualifier"])
+  data = function_data(functions, function_name, qualifier)
   reply = reply_from(data[:replies])
   if reply.nil?
     status_code = '404'
@@ -69,6 +78,7 @@ app = Proc.new do |env|
     status_code = '200'
   end
 
+  log(function_name, qualifier, payload, status_code, reply)
   headers = {'Content-Type' => 'application/octet-stream'}
   [status_code, headers, [reply]]
 end
