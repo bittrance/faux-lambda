@@ -45,7 +45,21 @@ Various:
 
 ## faux-lambda as a library
 
-TBD.
+You can use `faux-lambda` programmatically too, like so:
+```
+require `faux-lambda`
+lambda = FauxLambda.new(port: 12345).handle do |call|
+  return if call.async
+  if call.function_name == 'foo'
+    '{}'
+  end
+end
+
+Aws::Lambda.new(endpoint: lambda.endpoint).invoke(...)
+```
+
+If your handler function returns nil, faux-lambda will reply that the function is unknown (404). All other replies will be passed on to the
+caller, including if your lambda function fails.
 
 ## faux-lambda in your specs
 

@@ -1,4 +1,4 @@
-require File.expand_path('../lib/faux_lambda/version', __FILE__)
+require File.expand_path('../lib/faux_lambda', __FILE__)
 
 Gem::Specification.new do |spec|
   spec.name        = 'faux-lambda'
