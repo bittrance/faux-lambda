@@ -1,79 +1,14 @@
 #!/usr/bin/env ruby
 
-require 'optparse'
 require 'faux_lambda'
+require 'faux_lambda/cli_handler'
 
-options = {
-  port: 9123,
-  bind: '127.0.0.1',
-}
-
-functions = {
-  default: {
-    invocation_type: nil,
-    replies: []
-  }
-}
-
-def make_handler(script)
-  code = File.read(script)
-  lambda do |call|
-    eval(code, binding(), script)
-  end
-end
-
-current_function = :default
-parser = OptionParser.new do |opts|
-  opts.banner = "AWS Lambda debugging endpoint, version #{FauxLambda::VERSION}."
-  opts.separator('')
-  opts.separator('Usage: faux-lambda --reply "Hello world!"')
-  opts.separator('Query specifiers:')
-  opts.on('--function name', '-f name', 'Name of function to expect, optionally with :<qualifier>') do |function_name|
-    current_function = function_name
-    functions[current_function] = {replies: []}
-  end
-  opts.separator('Reply specifiers:')
-  opts.on('--reply payload', '-r payload', 'Data to respond with') do |payload|
-    functions[current_function][:replies] << lambda {|_| payload }
-  end
-  opts.on('--handler script.rb', '-h script.rb', 'Ruby script is eval:ed to produce reply') do |script|
-    functions[current_function][:replies] << make_handler(script)
-  end
-  opts.on('--fail', 'AWS Lambda framework gives 400') do
-    functions[current_function][:replies] << lambda {|_| :fail }
-  end
-  opts.separator('Control options')
-  opts.on('--port port', 'TCP port to bind, 9123 by default') do |port|
-    options[:port] = port
-  end
-  opts.on('--bind address', 'Interface to bind to, localhost by default') do |bindaddress|
-    options[:bind] = bindaddress
-  end
-end
-parser.parse!
-
-def reply_from(replies, call)
-  if replies.size > 1
-    replies.shift.call(call)
-  elsif replies.size == 1
-    replies.last.call(call)
-  else
-    nil
-  end
-end
-
-def function_data(functions, call)
-  qualified_function_name = if call.qualifier
-    "#{call.function_name}:#{call.qualifier}"
-  end
-  functions[qualified_function_name] || functions[call.function_name] || functions[:default]
-end
+cli_handler = FauxLambda::CliHandler.new
+cli_handler.parse_options(ARGV)
 
 begin
-  FauxLambda.new(options).handle do |call|
-    data = function_data(functions, call)
-    reply_from(data[:replies], call)
-  end
+  faux = FauxLambda.new(cli_handler.options)
+  faux.handle(&cli_handler.method(:handler))
 rescue Interrupt
   exit 130
 end

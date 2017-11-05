@@ -9,8 +9,8 @@ class FauxLambda
   )
 
   def initialize(options)
-    @bind = options[:bind]
-    @port = options[:port]
+    @bind = options[:bind] || '127.0.0.1'
+    @port = options[:port] || 9123
   end
 
   def handle(&block)
