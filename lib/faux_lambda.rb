@@ -2,8 +2,6 @@ require 'rack'
 require 'webrick'
 
 class FauxLambda
-  VERSION = '0.5.1'
-
   Call = Struct.new(
     :function_name,
     :qualifier,
@@ -45,7 +43,7 @@ class FauxLambda
         headers = {'Content-Type' => 'application/octet-stream'}
         [status_code, headers, [reply]]
       end,
-      BindAddress: @bind,
+      Host: @bind,
       Port: @port,
       Logger: WEBrick::Log.new($stderr, WEBrick::Log::ERROR),
       AccessLog: [['/dev/null', WEBrick::AccessLog::COMMON_LOG_FORMAT]]

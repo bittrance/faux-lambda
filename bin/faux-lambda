@@ -42,6 +42,13 @@ parser = OptionParser.new do |opts|
   opts.on('--fail', 'AWS Lambda framework gives 400') do
     functions[current_function][:replies] << lambda {|_| :fail }
   end
+  opts.separator('Control options')
+  opts.on('--port port', 'TCP port to bind, 9123 by default') do |port|
+    options[:port] = port
+  end
+  opts.on('--bind address', 'Interface to bind to, localhost by default') do |bindaddress|
+    options[:bind] = bindaddress
+  end
 end
 parser.parse!
 

@@ -53,6 +53,27 @@ Various:
   --version
 ```
 
+## faux-lambda as a Docker container
+
+You can use `faux-lambda` through Docker, like so:
+```
+docker -t bittrance/faux-lambda:latest --function=foo --reply='{}'
+```
+
+When combined with handler scripts and Docker Compose, you can add proper mocks to your project that behaves as the true functions. Add something like this to your `docker-compose.yml`:
+```
+version: '2'
+services:
+  lambda_mocks:
+    image: bittrance/faux-lambda:latest
+    command: --handler=/mock-lambdas.rb
+    ports:
+      - "127.0.0.1:9123:9123"
+    volumes:
+      - ./mock-lambdas.rb:/mock-lambdas.rb
+```
+This will start a container running faux-lambda with your local handler function.
+
 ## faux-lambda as a library
 
 You can use `faux-lambda` programmatically too, like so:

@@ -1,0 +1,9 @@
+version: '2'
+services:
+  lambda_mocks:
+    image: bittrance/faux-lambda:latest
+    command: --handler=/example-handler.rb
+    ports:
+      - 127.0.0.1:9123:9123
+    volumes:
+      - ./example-handler.rb:/example-handler.rb
