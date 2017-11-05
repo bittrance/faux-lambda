@@ -20,6 +20,15 @@ Called foo with ...
 ```
 Here, each call to function `foo` gets reply `{}`, first call to function `bar` gets `{}`, second gets `{}` and third will fail.
 
+You can pass a script to process the call:
+```
+cat > ./echo-service.rb <<EOF
+"You called #{call.function_name} with #{call.payload}"
+EOF
+faux-lambda --handler=./echo-service.rb
+```
+The handler script is a piece of ruby code that is `eval`:ed in the context of the handler function (see below). The value of the last line becomes the reply. `--handler` behaves much like `--reply` so you can use query specifiers to limit when the handler is executed.
+
 You can also pipe in replies from `stdin`, one reply per object (may contain newlines):
 ```
 faux-lambda --function=foo <<<EOF
@@ -33,13 +42,14 @@ In this mode, the CLI will accept only one function, but may prove useful where 
 Usage: faux-lambda [options]
 Query specifiers:
   --function-name=regex
-  --async       Require invocation to be async
-  --sync        Require invocation to be sync
+  --async             Require invocation to be async
+  --sync              Require invocation to be sync
 Reply specifiers:
-  --reply=json  Send this reply
-  --fail        ...
+  --reply=json        Send this reply
+  --handler=script.rb Ruby script is eval:ed to produce reply
+  --fail              Imitate AWS Lambda failure
 Various:
-  --quiet       Don't log sent and received messages
+  --quiet             Don't log sent and received messages
   --version
 ```
 

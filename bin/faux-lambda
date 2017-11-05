@@ -15,6 +15,13 @@ functions = {
   }
 }
 
+def make_handler(script)
+  code = File.read(script)
+  lambda do |call|
+    eval(code, binding(), script)
+  end
+end
+
 current_function = :default
 parser = OptionParser.new do |opts|
   opts.banner = "AWS Lambda debugging endpoint, version #{FauxLambda::VERSION}."
@@ -27,19 +34,22 @@ parser = OptionParser.new do |opts|
   end
   opts.separator('Reply specifiers:')
   opts.on('--reply payload', '-r payload', 'Data to respond with') do |payload|
-    functions[current_function][:replies] << payload
+    functions[current_function][:replies] << lambda {|_| payload }
+  end
+  opts.on('--handler script.rb', '-h script.rb', 'Ruby script is eval:ed to produce reply') do |script|
+    functions[current_function][:replies] << make_handler(script)
   end
   opts.on('--fail', 'AWS Lambda framework gives 400') do
-    functions[current_function][:replies] << :fail
+    functions[current_function][:replies] << lambda {|_| :fail }
   end
 end
 parser.parse!
 
-def reply_from(replies)
+def reply_from(replies, call)
   if replies.size > 1
-    replies.shift
+    replies.shift.call(call)
   elsif replies.size == 1
-    replies.last
+    replies.last.call(call)
   else
     nil
   end
@@ -55,7 +65,7 @@ end
 begin
   FauxLambda.new(options).handle do |call|
     data = function_data(functions, call)
-    reply_from(data[:replies])
+    reply_from(data[:replies], call)
   end
 rescue Interrupt
   exit 130
